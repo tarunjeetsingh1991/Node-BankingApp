@@ -23,3 +23,7 @@ app.use('/api/clients', authMiddleware, clientRoutes);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// command for mongodb: 
+// cd data
+// sudo mongod --dbpath=/Users/tjsingh/data/db

@@ -98,7 +98,11 @@ exports.depositFunds = async(req,res) => {
     {
       return res.status(404).json({ message: 'Client not found' });
     }
-
+    if (client.kycStatus !== 'Verified') {
+      return res.status(403).json({
+        message: 'KYC must be Verified to deposit funds'
+      });
+    }
     client.accountBalance += amount;
     await client.save();
     res.status(200).json({ message: 'Deposit successful', accountBalance: client.accountBalance });
@@ -124,6 +128,12 @@ exports.withdrawFunds = async(req,res) => {
       {
         return res.status(404).json({ message: 'Client not found' });
       }
+    if (client.kycStatus !== 'Verified') {
+      return res.status(403).json({
+        message: 'KYC must be Verified to withdraw funds'
+      });
+    }
+
     if(amount > client.accountBalance)
     {
       return res.status(400).json({ message: 'Insufficient balance' });
@@ -135,5 +145,71 @@ exports.withdrawFunds = async(req,res) => {
   catch(err)
   {
     res.status(500).json({message: 'Server error',error:err.message});
+  }
+};
+
+
+const Transaction = require('../models/Transaction');
+
+// Transfer funds
+exports.transferFunds = async (req, res) => {
+  try {
+    const { toClientId, amount } = req.body;
+    const fromClient = await Client.findById(req.params.id);
+    const toClient = await Client.findById(toClientId);
+
+    if (!fromClient || !toClient) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+
+    if (fromClient.kycStatus !== 'Verified' || toClient.kycStatus !== 'Verified') {
+      return res.status(403).json({ message: 'Both clients must have Verified KYC' });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ message: 'Transfer amount must be greater than zero' });
+    }
+
+    if (fromClient.accountBalance < amount) {
+      return res.status(400).json({ message: 'Insufficient balance' });
+    }
+
+    // Perform transfer
+    fromClient.accountBalance -= amount;
+    toClient.accountBalance += amount;
+
+    await fromClient.save();
+    await toClient.save();
+
+    // Save transaction
+    const transaction = new Transaction({
+      type: 'Transfer',
+      amount,
+      fromClient: fromClient._id,
+      toClient: toClient._id
+    });
+    await transaction.save();
+
+    res.status(200).json({ message: 'Transfer successful', fromBalance: fromClient.accountBalance, toBalance: toClient.accountBalance });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Get transaction history for a client
+exports.getTransactionHistory = async (req, res) => {
+  try {
+    const clientId = req.params.id;
+
+    const transactions = await Transaction.find({
+      $or: [{ fromClient: clientId }, { toClient: clientId }]
+    })
+      .sort({ date: -1 })
+      .populate('fromClient', 'name accountNumber')
+      .populate('toClient', 'name accountNumber');
+
+    res.status(200).json(transactions);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

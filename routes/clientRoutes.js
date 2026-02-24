@@ -7,7 +7,9 @@ const{
   updateClient,
   deleteClient,
   depositFunds,
-  withdrawFunds
+  withdrawFunds,
+  transferFunds,
+  getTransactionHistory
 } = require('../controllers/clientController');
 
 const router = express.Router();
@@ -21,5 +23,8 @@ router.put('/:id', updateClient);
 router.delete('/:id', deleteClient);
 router.post('/:id/deposit', depositFunds);
 router.post('/:id/withdraw', withdrawFunds);
+
+router.post('/:id/transfer', transferFunds);
+router.get('/:id/transactions', getTransactionHistory);
 
 module.exports = router;
