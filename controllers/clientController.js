@@ -5,11 +5,25 @@ exports.createClient = async(req,res) => {
   try
   {
     const{name,accountNumber} = req.body;
+    // Check if account number already exists
+    const existingClient = await Client.findOne({ accountNumber });
+    if (existingClient) {
+      return res.status(400).json({
+        message: 'Account number already exists'
+      });
+    }
     const client = new Client({name,accountNumber});
     await client.save();
+    res.status(201).json({ message: 'Client created successfully', client });
   }
   catch(err)
   {
+    // Handle duplicate key error from MongoDB
+    if (err.code === 11000) {
+      return res.status(400).json({
+        message: 'Account number must be unique'
+      });
+    }
     res.status(500).json({message: 'Server error',error:err.message});
   }
 };
